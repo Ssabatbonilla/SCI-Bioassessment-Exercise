@@ -24,8 +24,7 @@ library(tidyverse)
 library(lubridate)
 library(rmarkdown)
 library(lazyeval)
-
-
+```
 
 ## Important functions
 
@@ -74,12 +73,17 @@ SCI <- function(stationBenthicsDateRange, SCIchoice, benSamps, masterTaxaGenus, 
     filter(!is.na(`Final VA Family ID`)) %>%
     rename(`Genus Level Excluded Taxa` = `Excluded Taxa`)
 
-  # Rarefy to 110 individuals per sample (applies only when totals exceed 110)
-  EDASrare2 <- rarify(
-    bugdatlong = EDASrare2,
-    UID        = "BenSampID",
-    finalID    = "Final VA Family ID",
-    count      = "Count"
+# Rarefy to 110 individuals per sample (applies only when totals exceed 110)
+# NOTE: rarify() returns columns: UID, finalID, SampleCount, Count
+EDASrare2 <- rarify(
+  bugdatlong = EDASrare2,
+  UID        = "BenSampID",
+  finalID    = "Final VA Family ID",
+  count      = "Count"
+) %>%
+  rename(
+    BenSampID = UID,
+    `Final VA Family ID` = finalID
   )
 
   # Apply exclusion logic and aggregate to family level
@@ -189,10 +193,13 @@ stationBenthics <- readr::read_csv("data/raw/stationBenthicsTESTSITE.csv")
 ```
 
 ## SCI
-## Run one dataset through three index options (VSCI, VCPMI +63, VCPMI -65)
-## NOTE (teaching repo adaptation): we save each index output as a separate object and write
-## separate CSVs so students/labs can compare indices without overwriting results in memory.
 
+## Run one dataset through three index options (VSCI, VCPMI +63, VCPMI -65)
+
+NOTE (teaching repo adaptation): we save each index output as a separate object and write
+separate CSVs so students/labs can compare indices without overwriting results in memory.
+
+```{r}
 # Teaching repo adaptation: save each index output separately to avoid overwriting results.
 dir.create("data/processed", showWarnings = FALSE, recursive = TRUE)
 
@@ -221,5 +228,6 @@ cat(
   "- VCPMI63_rarefied.csv\n",
   "- VCPMI65_rarefied.csv\n"
 )
+```
 
       
