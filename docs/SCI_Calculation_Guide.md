@@ -1,85 +1,104 @@
 # Step-by-Step Guide: Running the SCI Calculation Script
 
-This guide walks you through running the **SCI Calculation 3 ways** script for VSCI and VCPMI indices.
+This guide walks you through calculating Stream Condition Index (SCI) scores using three index options run from the same workflow:
+
+VSCI (Virginia Stream Condition Index; impairment threshold 60)
+
+VCPMI + 63 (Virginia Coastal Plain Macroinvertebrate Index; impairment threshold 42)
+
+VCPMI − 65 (Virginia Coastal Plain Macroinvertebrate Index; impairment threshold 42)
+
+These are not three unrelated methods — they are three index options computed from the same input dataset and the same wrapper function.
 
 ---
 
-## **1. Install R and RStudio**
+1) What you will do in this exercise
+
+You will:
+
+Download this repository as a ZIP and unzip it.
+
+Install required R packages.
+
+Run the R Markdown workflow to compute SCI scores.
+
+Save and inspect the output CSVs written by the workflow.
+
+Use outputs to answer interpretation and watershed-context questions.
+
+2) Install R and RStudio
 - Make sure you have R (≥ 3.6.2) installed.
 - Install RStudio for easier script execution.
 
 ---
 
-## **2. Install Required R Packages**
+3) Install Required R Packages
 Open R or RStudio and run:
 ```r
-install.packages(c("tidyverse", "lubridate", "lazyeval"))
+install.packages(c("tidyverse", "lubridate", "lazyeval", "rmarkdown"))
 ```
 
 ---
 
-## **3. Place All Required Files in the Same Folder**
-The following files are **mandatory** for the script to run:
-1. **Updated_SCI Calculation 3 ways.Rmd** – Main analysis script.
-2. **Updated_rarifyFunction.R** – Function to rarefy counts to 110.
-3. **VCPMI_metrics_GENUS.R** – Metric calculation script for VCPMI.
-4. **VSCI_metrics_GENUS.R** – Metric calculation script for VSCI.
-5. **masterTaxaGenus.csv** – Master taxa list with tolerance values and traits.
-6. **stationInfoBenSampsTESTSITE.csv** – Station metadata (site, collection date, etc.).
-7. **stationBenthicsTESTSITE.csv** – Benthic macroinvertebrate data.
-
-> **Tip:** Keep them all in one folder to avoid path issues.
-
+4) Download the repository (ZIP) and unzip
+  1. On GitHub, click Code → Download ZIP
+  2. Unzip the folder somewhere you can easily find (e.g., Documents)
+    > Important: Do not rename the folders src/ or data/, and do not move files out of them.
 ---
 
-## **4. Open and Edit the Script**
-1. Open **Updated_SCI Calculation 3 ways.Rmd** in RStudio.
-2. Check that all file paths in the script match your folder structure.
-   - For example:
-     ```r
-     masterTaxaGenus <- read.csv("masterTaxaGenus.csv")
-     stationBenSamps <- read_csv("stationInfoBenSampsTESTSITE.csv")
-     stationBenthics <- read_csv("stationBenthicsTESTSITE.csv")
-     ```
-
+5) Confirm the required repository structure
+After unzipping, you should see this structure:
+  Scripts (src/)
+    - src/Updated_SCI Calculation 3 ways.Rmd (main workflow)
+    - src/VSCI_metrics_GENUS.R (VSCI metrics)
+    - src/VCPMI_metrics_GENUS.R (VCPMI metrics)
+    - src/Updated_rarifyFunction.R (rarefaction function)
+  Example input data (data/raw/)
+    - data/raw/masterTaxaGenus.csv
+    - data/raw/stationInfoBenSampsTESTSITE.csv
+    - data/raw/stationBenthicsTESTSITE.csv
+  Outputs (data/processed/)
+    - This folder will be created automatically when you run the workflow.
 ---
 
-## **5. Source the Required Scripts**
-The main R Markdown file automatically loads:
-```r
-source("VSCI_metrics_GENUS.R")
-source("VCPMI_metrics_GENUS.R")
-source("Updated_rarifyFunction.R")
-```
-
-Ensure these files are present in the working directory.
-
+6) Run the workflow (recommended method)
+  1. Open RStudio
+  2. Open the file:
+    - src/Updated_SCI Calculation 3 ways.Rmd
+  3. Click Knit → Knit to HTML
+    If everything is correct, the document will render and write output files.
 ---
 
-## **6. Run the Script**
-You have two options:
-
-### **Option A: Run Entire Script**
-- In RStudio, click **Knit** → **Knit to HTML** to generate a report with results.
-
-### **Option B: Run Line by Line**
-- Highlight and run each chunk (`Ctrl + Enter`) to inspect outputs at each stage.
-
+7) Where outputs are saved
+The workflow writes outputs to:
+  - data/processed/VASCI_rarefied.csv
+  - data/processed/VCPMI63_rarefied.csv
+  - data/processed/VCPMI65_rarefied.csv
+    These files contain the calculated SCI scores and supporting metric columns.
 ---
 
-## **7. Output Files**
-- The script saves results to CSV files:
-  - `VASCI_rarefied.csv` (example output for VSCI)
-- Similar CSV outputs will be generated for VCPMI +63 and VCPMI -65.
+8) Troubleshooting (most common issues)
+  “File not found”
+    Cause: the repository structure was changed (files moved/renamed) or the Rmd was run outside the repo folder.
+      Fix:
+        - Re-download the ZIP
+        - Unzip again
+        - Do not rename folders/files
+        - Knit the Rmd from inside the unzipped repository folder
+  “Package not found”
+    Cause: required packages not installed.
+      Fix:
+        - install.packages(c("tidyverse", "lubridate", "lazyeval", "rmarkdown"))
+  “My data doesn’t work with this template”
+    Your data must match the required input column names (e.g., BenSampID, FinalID, Individuals, and any exclusion field used in the template). If using your own data, align your columns to the example templates in data/raw/.
 
 ---
-
-## **8. Troubleshooting**
-- If you get a "file not found" error → check that all required CSV and R scripts are in the same folder.
-- If you get a "package not found" error → install the missing package using `install.packages()`.
-- If column names in your data differ from the template, match them exactly to avoid errors.
-
+9) Watershed land-use context (WikiWatershed)
+  To compare land cover among sites, use:
+    https://wikiwatershed.org/model/
+  For each site watershed (or consistent watershed delineation), record land cover (%) and compare patterns among sites. Relate land cover differences to SCI patterns.
 ---
 
-## **Contact**
-For questions on SCI methodology, contact **Emma Jones** (emma.jones@deq.virginia.gov).
+Contact
+  - For SCI methodology questions: Emma Jones (emma.jones@deq.virginia.gov)
+  - For questions about this teaching repository (structure, files, assignment): Sergio Sabat-Bonilla (ssabatbonilla@vt.edu)
