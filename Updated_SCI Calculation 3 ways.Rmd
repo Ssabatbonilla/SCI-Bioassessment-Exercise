@@ -80,11 +80,7 @@ EDASrare2 <- rarify(
   UID        = "BenSampID",
   finalID    = "Final VA Family ID",
   count      = "Count"
-) %>%
-  rename(
-    BenSampID = UID,
-    `Final VA Family ID` = finalID
-  )
+)
 
   # Apply exclusion logic and aggregate to family level
   exclusionMath <- EDASrare2 %>%
