@@ -68,19 +68,36 @@ SCI <- function(stationBenthicsDateRange, SCIchoice, benSamps, masterTaxaGenus, 
       ClassTaxaLevel       = ifelse(FinalID %in% ClassNames, T, F)
     )
 
-  # Backtrack FinalID to Final VA Family ID
-  EDASrare2 <- left_join(EDASrare, edas_list, by = "FinalID") %>%
-    filter(!is.na(`Final VA Family ID`)) %>%
-    rename(`Genus Level Excluded Taxa` = `Excluded Taxa`)
+EDASrare2 <- left_join(EDASrare, edas_list, by = "FinalID") %>%
+  filter(!is.na(`Final VA Family ID`)) %>%
+  mutate(
+    # In your CSV, `Excluded Taxa` is 0/1; the original logic expects 0/-1
+    `Genus Level Excluded Taxa` = ifelse(`Excluded Taxa` == 1, -1, 0)
+  )
 
-# Rarefy to 110 individuals per sample (applies only when totals exceed 110)
-# NOTE: rarify() returns columns: UID, finalID, SampleCount, Count
+# ---- Preserve needed “metadata” columns that rarify() will drop ----
+keep_cols <- EDASrare2 %>%
+  select(
+    BenSampID,
+    `Final VA Family ID`,
+    `Genus Level Excluded Taxa`,
+    GenusTaxaLevel, FamilyTaxaLevel, SuperfamilyTaxaLevel,
+    SuborderTaxaLevel, OrderTaxaLevel, SubclassTaxaLevel, ClassTaxaLevel
+  ) %>%
+  distinct() %>%
+  group_by(BenSampID, `Final VA Family ID`) %>%
+  summarise(across(everything(), ~ max(.x, na.rm = TRUE)), .groups = "drop")
+
+# ---- Rarefy counts (returns only IDs + SampleCount + Count) ----
 EDASrare2 <- rarify(
   bugdatlong = EDASrare2,
   UID        = "BenSampID",
   finalID    = "Final VA Family ID",
   count      = "Count"
 )
+
+# ---- Join the preserved columns back so downstream exclusion logic works ----
+EDASrare2 <- left_join(EDASrare2, keep_cols, by = c("BenSampID", "Final VA Family ID"))
 
   # Apply exclusion logic and aggregate to family level
   exclusionMath <- EDASrare2 %>%
