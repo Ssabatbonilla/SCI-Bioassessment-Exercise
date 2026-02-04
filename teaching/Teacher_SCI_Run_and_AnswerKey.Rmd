@@ -1,0 +1,346 @@
+---
+title: "Instructor: SCI Calculation + Assignment Answer Key Starter"
+author: "Sergio Sabat-Bonilla (teaching adaptation); original SCI code: Emma Jones (VDEQ)"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = TRUE
+)
+
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(lubridate)
+  library(rmarkdown)
+  library(lazyeval) # required by rarify() implementation
+})
+
+```
+
+## Purpose (Instructor-only)
+
+This instructor Rmd adds two robustness steps that make the workflow run cleanly across machines and data-entry conventions:
+
+1) **Excluded Taxa recode:** Some CSVs store `Excluded Taxa` as `0/1`, while the original logic expects `0/-1`.  
+2) **Preserve metadata across rarefaction:** `rarify()` returns only IDs + `SampleCount` + `Count`, so we **save and re-join** the exclusion flag and taxa-level flags needed downstream.
+
+> Students can run the simpler “public” workflow. Instructors can use this file for grading, troubleshooting, and generating answer keys.
+
+---
+
+## Load required scripts
+
+```{r}
+source("src/VSCI_metrics_GENUS.R")
+source("src/VCPMI_metrics_GENUS.R")
+source("src/Updated_rarifyFunction.R")
+```
+
+Read inputs
+```{r}
+masterTaxaGenus <- read.csv("data/raw/masterTaxaGenus.csv") %>%
+  rename(`Final VA Family ID` = "Final.VA.Family.ID")
+
+stationBenSamps <- readr::read_csv("data/raw/stationInfoBenSampsTESTSITE.csv")
+stationBenthics <- readr::read_csv("data/raw/stationBenthicsTESTSITE.csv")
+```
+
+Build vmast (traits/metrics lookup)
+```{r}
+vmast <- masterTaxaGenus %>%
+  rename(
+    GenusTolVal = TolVal,
+    TolVal      = FamTolVal,
+    GenusFFG    = FFG,
+    FFG         = FamFFG,
+    GenusHabit  = Habit,
+    Habit       = FamHabit
+  ) %>%
+  mutate(
+    e  = ifelse(Order == "Ephemeroptera", 1, 0),
+    p  = ifelse(Order == "Plecoptera",   1, 0),
+    t  = ifelse(Order == "Trichoptera",  1, 0),
+    tmin = ifelse(
+      (Order == "Trichoptera" & Family != "Hydropsychidae") |
+        (Order == "Trichoptera" & is.na(Family)),
+      1, 0
+    ),
+    ept     = ifelse(e + p + t > 0, 1, 0),
+    scraper = ifelse(FFG == "Scraper", 1, 0),
+    chiro   = ifelse(Family == "Chironomidae", 1, 0),
+    ptmin   = ifelse(p + tmin > 0, 1, 0),
+    `clinger-HS` = ifelse(Habit == "Clinger" & !Family %in% c("Hydropsychidae", "Simuliidae"), 1, 0)
+  ) %>%
+  select(`Final VA Family ID`, TolVal, e, p, t, ept, ptmin, scraper, chiro, `clinger-HS`) %>%
+  distinct(`Final VA Family ID`, .keep_all = TRUE) %>%
+  filter(!is.na(`Final VA Family ID`)) %>%
+  pivot_longer(-`Final VA Family ID`, names_to = "metric", values_to = "metric_val") %>%
+  filter(!is.na(metric_val))
+```
+
+SCI wrapper (robust instructor version)
+```{r sci_instructor_function}
+SCI_instructor <- function(stationBenthicsDateRange, SCIchoice, benSamps, masterTaxaGenus, vmast){
+
+  edas_options <- masterTaxaGenus %>%
+    dplyr::select(
+      Class, Subclass, Order, Suborder, Superfamily, Family,
+      `Final VA Family ID`, FinalID
+    ) %>%
+    mutate(across(where(is.factor), as.character))
+
+  edas_list <- edas_options %>% dplyr::select(`Final VA Family ID`, FinalID)
+
+  GenusNames       <- unique(edas_options$FinalID)[!is.na(edas_options$FinalID)]
+  FamilyNames      <- unique(edas_options$Family)[!is.na(edas_options$Family)]
+  SuperfamilyNames <- unique(edas_options$Superfamily)[!is.na(edas_options$Superfamily)]
+  SuborderNames    <- unique(edas_options$Suborder)[!is.na(edas_options$Suborder)]
+  OrderNames       <- unique(edas_options$Order)[!is.na(edas_options$Order)]
+  SubclassNames    <- unique(edas_options$Subclass)[!is.na(edas_options$Subclass)]
+  ClassNames       <- unique(edas_options$Class)[!is.na(edas_options$Class)]
+
+  EDASrare <- stationBenthicsDateRange %>%
+    mutate(Count = Individuals) %>%
+    dplyr::select(BenSampID, FinalID, Count, `Excluded Taxa`) %>%
+    mutate(
+      GenusTaxaLevel       = FinalID %in% GenusNames,
+      FamilyTaxaLevel      = FinalID %in% FamilyNames,
+      SuperfamilyTaxaLevel = FinalID %in% SuperfamilyNames,
+      SuborderTaxaLevel    = FinalID %in% SuborderNames,
+      OrderTaxaLevel       = FinalID %in% OrderNames,
+      SubclassTaxaLevel    = FinalID %in% SubclassNames,
+      ClassTaxaLevel       = FinalID %in% ClassNames
+    )
+
+  EDASrare2 <- left_join(EDASrare, edas_list, by = "FinalID") %>%
+    filter(!is.na(`Final VA Family ID`)) %>%
+    mutate(`Genus Level Excluded Taxa` = ifelse(`Excluded Taxa` == 1, -1, 0))
+
+  keep_cols <- EDASrare2 %>%
+    dplyr::select(
+      BenSampID, `Final VA Family ID`, `Genus Level Excluded Taxa`,
+      GenusTaxaLevel, FamilyTaxaLevel, SuperfamilyTaxaLevel,
+      SuborderTaxaLevel, OrderTaxaLevel, SubclassTaxaLevel, ClassTaxaLevel
+    ) %>%
+    group_by(BenSampID, `Final VA Family ID`) %>%
+    summarise(across(everything(), ~ max(as.numeric(.x), na.rm = TRUE)), .groups = "drop") %>%
+    mutate(across(
+      c(GenusTaxaLevel, FamilyTaxaLevel, SuperfamilyTaxaLevel,
+        SuborderTaxaLevel, OrderTaxaLevel, SubclassTaxaLevel, ClassTaxaLevel),
+      ~ as.logical(.x)
+    ))
+
+  EDASrare2_r <- rarify(
+    bugdatlong = EDASrare2,
+    UID        = "BenSampID",
+    finalID    = "Final VA Family ID",
+    count      = "Count"
+  )
+
+  EDASrare2_r <- left_join(EDASrare2_r, keep_cols, by = c("BenSampID", "Final VA Family ID"))
+
+  exclusionMath <- EDASrare2_r %>%
+    mutate(
+      `Family Level Excluded Taxa` =
+        ifelse(`Genus Level Excluded Taxa` == -1,
+               ifelse(SuperfamilyTaxaLevel | SuborderTaxaLevel | OrderTaxaLevel |
+                        SubclassTaxaLevel | ClassTaxaLevel,
+                      -1, 0),
+               0)
+    ) %>%
+    group_by(BenSampID, `Final VA Family ID`) %>%
+    summarise(
+      `Family Level Count` = sum(Count),
+      `Family Level Taxa` = n(),
+      `Family Level Excluded Taxa` = sum(`Family Level Excluded Taxa`),
+      `Final Family Level Taxa` = `Family Level Taxa` + sum(`Family Level Excluded Taxa`),
+      .groups = "drop"
+    )
+
+  bugTraits <- left_join(
+    exclusionMath, vmast,
+    by = c("Final VA Family ID"),
+    relationship = "many-to-many"
+  )
+
+  if (SCIchoice == "VSCI") {
+    SCIout <- VSCIcalculation(bugTraits, exclusionMath, vmast) %>%
+      mutate(SCI = "VSCI", `SCI Threshold` = 60) %>%
+      rename(`SCI Score` = `Fam SCI`)
+  } else if (SCIchoice == "VCPMI + 63") {
+    SCIout <- VCPMI63calculation(bugTraits, exclusionMath, vmast) %>%
+      mutate(SCI = "VCPMI + 63", `SCI Threshold` = 42) %>%
+      rename(`SCI Score` = `CPMI63+CHOWAN`)
+  } else if (SCIchoice == "VCPMI - 65") {
+    SCIout <- VCPMI65calculation(bugTraits, exclusionMath, vmast) %>%
+      mutate(SCI = "VCPMI - 65", `SCI Threshold` = 42) %>%
+      rename(`SCI Score` = `CPMI65-CHOWAN`)
+  } else {
+    stop("SCIchoice must be one of: 'VSCI', 'VCPMI + 63', 'VCPMI - 65'")
+  }
+
+  left_join(SCIout, benSamps, by = "BenSampID")
+}
+```
+
+Run all three indices + write outputs
+```{r}
+dir.create("data/processed", showWarnings = FALSE, recursive = TRUE)
+
+SCI_vsci    <- SCI_instructor(stationBenthics, "VSCI",       stationBenSamps, masterTaxaGenus, vmast)
+SCI_vcpmi63 <- SCI_instructor(stationBenthics, "VCPMI + 63", stationBenSamps, masterTaxaGenus, vmast)
+SCI_vcpmi65 <- SCI_instructor(stationBenthics, "VCPMI - 65", stationBenSamps, masterTaxaGenus, vmast)
+
+write_csv(SCI_vsci,    "data/processed/VASCI_rarefied.csv")
+write_csv(SCI_vcpmi63, "data/processed/VCPMI63_rarefied.csv")
+write_csv(SCI_vcpmi65, "data/processed/VCPMI65_rarefied.csv")
+
+cat("Wrote outputs to data/processed/\n")
+```
+
+Starter analyses to answer the assignment (Instructor key scaffolding)
+
+Q1–Q2: Site summaries + threshold exceedance
+```{r}
+all_scores <- bind_rows(
+  SCI_vsci    %>% select(StationID, BenSampID, `Collection Date`, SCI, `SCI Score`, `SCI Threshold`),
+  SCI_vcpmi63 %>% select(StationID, BenSampID, `Collection Date`, SCI, `SCI Score`, `SCI Threshold`),
+  SCI_vcpmi65 %>% select(StationID, BenSampID, `Collection Date`, SCI, `SCI Score`, `SCI Threshold`)
+)
+
+site_summary <- all_scores %>%
+  group_by(StationID, SCI, `SCI Threshold`) %>%
+  summarise(
+    n = n(),
+    mean = mean(`SCI Score`, na.rm = TRUE),
+    sd   = sd(`SCI Score`, na.rm = TRUE),
+    var  = var(`SCI Score`, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(above_threshold = mean >= `SCI Threshold`) %>%
+  arrange(SCI, StationID)
+
+site_summary
+```
+
+Q3: Time series (VSCI example)
+```{r vsci_object}
+vsci <- SCI_vsci %>%
+  mutate(`Collection Date` = as.Date(`Collection Date`))
+```
+
+Plot A — “true time series” (stations with repeated samples)
+```{r}
+vsci_rep <- vsci %>%
+  count(StationID) %>%
+  filter(n >= 3) %>%    # set to 2 or 3 depending on how strict you want
+  pull(StationID) %>%
+  (\(ids) filter(vsci, StationID %in% ids))()
+
+ggplot(vsci_rep, aes(x = `Collection Date`, y = `SCI Score`)) +
+  geom_line(linewidth = 0.9, alpha = 0.85) +
+  geom_point(size = 2, alpha = 0.9) +
+  geom_hline(yintercept = 60, linetype = "dashed") +
+  facet_wrap(~ StationID, scales = "free_x") +
+  labs(
+    title = "VSCI over time (stations with repeated sampling only)",
+    x = "Collection date",
+    y = "VSCI score"
+  ) +
+  theme_bw()
+```
+
+Plot B — Single-visit  and seasonal sites grouped by season instead
+```{r q3b_single_visit_by_season}
+# Sites with only one visit (no time series possible)
+single_ids <- vsci %>%
+  count(StationID) %>%
+  filter(n == 1) %>%
+  pull(StationID)
+
+vsci_single <- vsci %>%
+  filter(StationID %in% single_ids) %>%
+  mutate(
+    Month = month(`Collection Date`),
+    Season = case_when(
+      Month %in% c(12, 1, 2)  ~ "Winter",
+      Month %in% c(3, 4, 5)   ~ "Spring",
+      Month %in% c(6, 7, 8)   ~ "Summer",
+      Month %in% c(9, 10, 11) ~ "Fall"
+    ),
+    Season = factor(Season, levels = c("Spring","Summer","Fall","Winter"))
+  )
+
+ggplot(vsci_single, aes(x = Season, y = `SCI Score`)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.25) +
+  geom_jitter(width = 0.15, alpha = 0.8, size = 2) +
+  geom_hline(yintercept = 60, linetype = "dashed") +
+  labs(
+    title = "VSCI single-visit sites by season",
+    x = "Season (from collection date)",
+    y = "VSCI score"
+  ) +
+  theme_bw()
+```
+
+Plot C — CRO seasonal sites combined (CRO1 Fall + Spring in one panel)
+This turns CRO1Fall and CRO1Spring into one base site CRO1, with Season as the grouping.
+```{r q3c_cro_fall_spring_combined}
+vsci_cro <- vsci %>%
+  filter(str_detect(StationID, "^CRO")) %>%
+  mutate(
+    Season = case_when(
+      str_detect(StationID, "Fall$")   ~ "Fall",
+      str_detect(StationID, "Spring$") ~ "Spring",
+      TRUE ~ NA_character_
+    ),
+    SiteBase = str_replace(StationID, "(Fall|Spring)$", ""),
+    Season = factor(Season, levels = c("Spring","Fall"))
+  ) %>%
+  filter(!is.na(Season))
+
+ggplot(vsci_cro, aes(x = Season, y = `SCI Score`, group = Season)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.25) +
+  geom_jitter(width = 0.12, alpha = 0.85, size = 2) +
+  geom_hline(yintercept = 60, linetype = "dashed") +
+  facet_wrap(~ SiteBase) +
+  labs(
+    title = "VSCI CRO sites: Spring vs Fall (combined by base site)",
+    x = "Season (from StationID suffix)",
+    y = "VSCI score"
+  ) +
+  theme_bw()
+```
+
+Q8: Total abundance vs VSCI (example)
+```{r}
+abund <- stationBenthics %>%
+  group_by(BenSampID) %>%
+  summarise(TotalIndividuals_raw = sum(Individuals, na.rm = TRUE), .groups = "drop")
+
+q8_df <- SCI_vsci %>%
+  left_join(abund, by = "BenSampID")
+
+ggplot(q8_df, aes(x = `SCI Score`, y = TotalIndividuals_raw)) +
+  geom_point(alpha = 0.85) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    title = "Total abundance (raw) vs VSCI",
+    x = "VSCI score",
+    y = "Total individuals (raw)"
+  ) +
+  theme_bw()
+```
+
+Q9: Rarefaction effect (optional if you keep a “pre-rarefaction” branch)
+
+If you want a true before/after, you’ll need to compute VSCI once without rarefaction and compare.
+(This instructor file currently runs the rarefied workflow to match EDAS.)
