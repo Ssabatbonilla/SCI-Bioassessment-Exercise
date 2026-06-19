@@ -1,0 +1,45 @@
+{
+  "title": "SCI Bioassessment Exercise (VSCI & VCPMI)",
+  "version": "v1.1.0",
+  "description": "A reproducible teaching and analysis repository for calculating Stream Condition Index (SCI) scores using benthic macroinvertebrate data. Implements three Virginia bioassessment indices (VSCI, VCPMI +63, VCPMI -65) from a single R Markdown workflow. Includes supporting metric functions, example datasets, and a graduate-level classroom assignment. The VDEQ methodology and original metric scripts are credited to Emma Jones (Virginia DEQ).",
+  "license": "MIT",
+  "upload_type": "software",
+  "creators": [
+    {
+      "name": "Sabat-Bonilla, Sergio A.",
+      "affiliation": "Department of Entomology, Virginia Tech",
+      "orcid": ""
+    },
+    {
+      "name": "Entrekin, Sally A.",
+      "affiliation": "Department of Entomology, Virginia Tech",
+      "orcid": ""
+    }
+  ],
+  "contributors": [
+    {
+      "name": "Jones, Emma",
+      "affiliation": "Virginia Department of Environmental Quality",
+      "type": "Other"
+    }
+  ],
+  "keywords": [
+    "macroinvertebrates",
+    "bioassessment",
+    "VSCI",
+    "VCPMI",
+    "Stream Condition Index",
+    "Index of Biotic Integrity",
+    "R",
+    "teaching",
+    "Chesapeake",
+    "Virginia"
+  ],
+  "related_identifiers": [
+    {
+      "relation": "isSupplementTo",
+      "identifier": "https://github.com/Ssabatbonilla/SCI-Bioassessment-Exercise"
+    }
+  ],
+  "access_right": "open"
+}

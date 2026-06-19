@@ -3,10 +3,10 @@ cff-version: 1.2.0
 message: "If you use this repository, please cite it as below."
 type: software
 title: "SCI Bioassessment Exercise (VSCI & VCPMI)"
-version: "v1.0.0"
+version: "v1.1.0"
 doi: "10.5281/zenodo.16952880"
 date-released: "2025-08-26"
-repository-code: "https://github.com/Ssababtonilla/SCI-Bioassessment-Exercise"
+repository-code: "https://github.com/Ssabatbonilla/SCI-Bioassessment-Exercise"
 url: "https://doi.org/10.5281/zenodo.16952880"
 license: MIT
 authors:
@@ -35,7 +35,7 @@ abstract: >
 preferred-citation:
   type: software
   title: "SCI Bioassessment Exercise (VSCI & VCPMI)"
-  version: "v1.0.0"
+  version: "v1.1.0"
   doi: "10.5281/zenodo.16952880"
   date-released: "2025-08-26"
   authors:
