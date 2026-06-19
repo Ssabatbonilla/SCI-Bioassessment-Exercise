@@ -1,5 +1,5 @@
 # SCI Bioassessment Exercise (VSCI & VCPMI)
-![R-CMD-check](https://github.com/Ssababtonilla/SCI-Bioassessment-Exercise/actions/workflows/r-check.yml/badge.svg)
+![R-CMD-check](https://github.com/Ssabatbonilla/SCI-Bioassessment-Exercise/actions/workflows/r-check.yml/badge.svg)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16952880.svg)](https://doi.org/10.5281/zenodo.16952880)
 
 A reproducible **teaching and analysis repository** for calculating Stream Condition Index (SCI) scores using benthic macroinvertebrate data.  
@@ -13,7 +13,7 @@ The repository includes a ready-to-run R Markdown workflow, supporting metric fu
 
 > **For textbooks, lab manuals, or chapters:**  
 > Cite the DOI above and link to the repository:  
-> https://github.com/Ssababtonilla/SCI-Bioassessment-Exercise
+> https://github.com/Ssabatbonilla/SCI-Bioassessment-Exercise
 
 ---
 
